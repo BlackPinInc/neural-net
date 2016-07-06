@@ -1,9 +1,11 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, TupleSections #-}
 module Network where
 
 import Data.Matrix
 import Data.Vector (singleton)
 import Data.Maybe (isJust, fromJust)
+import Data.Random.Normal
+import System.Random
 
 data Network = Network { numLayers :: Int
                        , sizes :: [Int]
@@ -29,6 +31,25 @@ instance Floating a => Floating (Matrix a) where
   asinh = fmap asinh
   acosh = fmap acosh
   atanh = fmap atanh
+
+
+biasSizes = map (1,) . tail
+
+weigthSizes sizes = zip sizes $ tail sizes
+
+randn g (w,h) = fromList h w $ normals g
+
+tonORandoms g = g1 : tonORandoms g2
+  where (g1, g2) = split g
+
+mkNetwork :: [Int] -> IO Network
+mkNetwork widths = do
+  stdGen <- getStdGen
+  stdGen1 <- getStdGen
+  return Network { numLayers = length widths
+                 , sizes = widths
+                 , biases = zipWith randn (tonORandoms stdGen) $ biasSizes widths
+                 , weights = zipWith randn (tonORandoms stdGen1) $ weigthSizes widths}
 
 -- Thing about what haskell does best.
 -- is it algorithms or equations?
@@ -66,5 +87,5 @@ feedForward net x
                            , biases = tail (biases net)
                            , weights = tail (weights net)}
 
-cost = 1/2*n*sum(magnitude(output-activation)^2) 
+-- cost = 1/2*n*sum(magnitude(output-activation)^2)
 -- C(w,b)≡1/(2n)∑x ∥ y(x)−a ∥^2.

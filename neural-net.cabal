@@ -20,7 +20,9 @@ library
                        matrix,
                        vector,
                        bytestring,
-                       binary
+                       binary,
+                       normaldistribution,
+                       random
   default-language:    Haskell2010
 
 executable neural-net

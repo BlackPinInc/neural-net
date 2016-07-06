@@ -35,3 +35,14 @@ spec = do
       sigmoid' (fromList 1 1 [0] :: Matrix Double) `shouldBe` 0.25
   --   it "is always positive" $
   --     property $ \x -> (sigmoid' x) >= (0.0 :: Double)
+
+  describe "mkNetwork" $ do
+    it "makes a network" $ do
+      mkNetwork [1,2,3,6,1] `shouldSatisfy` (const True)
+
+    -- it "is 0 at +inf" $ do
+    --   sigmoid' (fromList 1 1 [1/0] :: Matrix Double) `shouldBe` 0
+    -- it "is 0.25 at 0" $ do
+    --   sigmoid' (fromList 1 1 [0] :: Matrix Double) `shouldBe` 0.25
+  --   it "is always positive" $
+  --     property $ \x -> (sigmoid' x) >= (0.0 :: Double)

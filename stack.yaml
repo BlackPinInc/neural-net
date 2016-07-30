@@ -1,7 +1,13 @@
 flags: {}
-extra-package-dbs: []
 packages:
 - '.'
 extra-deps:
+- loop-0.3.0
+- matrix-0.3.5.0
 - normaldistribution-1.1.0.3
-resolver: lts-6.3
+- primitive-0.6.1.0
+- random-1.1
+- vector-0.11.0.0
+install-ghc: true
+resolver: ghc-7.10
+skip-ghc-check: true

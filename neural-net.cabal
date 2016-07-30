@@ -16,7 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Network, MnistLoader, TrainingSet
-  build-depends:       base >= 4.7 && < 5,
+  build-depends:       base >= 4.7,
                        matrix,
                        vector,
                        bytestring,

@@ -38,7 +38,8 @@ spec = do
 
   describe "mkNetwork" $ do
     it "makes a network" $ do
-      mkNetwork [1,2,3,6,1] `shouldSatisfy` (const True)
+      net <- mkNetwork [1,2,3,6,1] 
+      net `shouldSatisfy` (const True)
 
     -- it "is 0 at +inf" $ do
     --   sigmoid' (fromList 1 1 [1/0] :: Matrix Double) `shouldBe` 0

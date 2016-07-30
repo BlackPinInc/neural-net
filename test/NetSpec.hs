@@ -2,9 +2,9 @@ module NetSpec (main, spec) where
 
 import Test.Hspec
 import Test.QuickCheck
-import Data.Matrix
-import Data.Vector (singleton)
 import Network
+import Data.Array.Accelerate as A
+import Data.Array.Accelerate.Interpreter as I
 
 -- `main` is here so that this module can be run from GHCi on its own.  It is
 -- not needed for automatic spec discovery.
@@ -13,6 +13,17 @@ main = hspec spec
 
 spec :: Spec
 spec = do
+  describe "sigmoid" $ do
+    let neginf = unit (-1/0) -- -inf
+    let posinf = unit (1/0) -- +inf
+    let zero = unit 0 -- 0
+    it "is 0 at -inf" $ do
+      indexArray (run (sigmoid neginf)) Z `shouldBe` 0
+    it "is 1 at inf" $ do
+      indexArray (run (sigmoid posinf)) Z `shouldBe` 1
+    it "is 0.5 at 0" $ do
+      indexArray (run (sigmoid zero)) Z `shouldBe` 0.5
+  {-
   describe "sigmoid" $ do
     it "is 0 at -inf" $ do
       sigmoid (fromList 1 1 [-1/0] :: Matrix Double) `shouldBe` 0
@@ -36,10 +47,10 @@ spec = do
   --   it "is always positive" $
   --     property $ \x -> (sigmoid' x) >= (0.0 :: Double)
 
-  describe "mkNetwork" $ do
-    it "makes a network" $ do
-      net <- mkNetwork [1,2,3,6,1] 
-      net `shouldSatisfy` (const True)
+  -- describe "mkNetwork" $ do
+    -- it "makes a network" $ do
+      -- net <- mkNetwork [1,2,3,6,1] 
+      -- net `shouldSatisfy` (const True)
 
     -- it "is 0 at +inf" $ do
     --   sigmoid' (fromList 1 1 [1/0] :: Matrix Double) `shouldBe` 0
@@ -47,3 +58,4 @@ spec = do
     --   sigmoid' (fromList 1 1 [0] :: Matrix Double) `shouldBe` 0.25
   --   it "is always positive" $
   --     property $ \x -> (sigmoid' x) >= (0.0 :: Double)
+  -}

@@ -1,55 +1,21 @@
 {-# LANGUAGE FlexibleContexts, TupleSections #-}
 module Network where
 
-import Data.Matrix
-import Data.Vector (singleton)
 import Data.Maybe (isJust, fromJust)
 import Data.Random.Normal
 import System.Random
+import Data.Array.Accelerate as A
 
-data Network = Network { numLayers :: Int
-                       , sizes :: [Int]
-                       , biases :: [Matrix Double]
-                       , weights :: [Matrix Double]
-                       } deriving (Show)
+type Tensor ix = Array ix Float
 
-instance Fractional a => Fractional (Matrix a) where
-  (/) = elementwise (/)
-  fromRational = colVector . singleton . fromRational
+sigmoid :: (Shape ix) => Acc (Tensor ix) -> Acc (Tensor ix)
+sigmoid = A.map (\z -> 1 / (1 + exp (-z)))
 
-instance Floating a => Floating (Matrix a) where
-  pi = colVector $ singleton pi
-  exp = fmap exp
-  log = fmap log
-  sin = fmap sin
-  cos = fmap cos
-  asin = fmap asin
-  acos = fmap acos
-  atan = fmap atan
-  sinh = fmap sinh
-  cosh = fmap cosh
-  asinh = fmap asinh
-  acosh = fmap acosh
-  atanh = fmap atanh
+sigmoid' :: (Shape ix) => Acc (Tensor ix) -> Acc (Tensor ix)
+sigmoid' = A.map (\z -> let s = 1 / (1 + exp (-z)) 
+                        in s * (1 - s))
 
 
-biasSizes = map (1,) . tail
-
-weigthSizes sizes = zip sizes $ tail sizes
-
-randn g (w,h) = fromList h w $ normals g
-
-tonORandoms g = g1 : tonORandoms g2
-  where (g1, g2) = split g
-
-mkNetwork :: [Int] -> IO Network
-mkNetwork widths = do
-  stdGen <- getStdGen
-  stdGen1 <- getStdGen
-  return Network { numLayers = length widths
-                 , sizes = widths
-                 , biases = zipWith randn (tonORandoms stdGen) $ biasSizes widths
-                 , weights = zipWith randn (tonORandoms stdGen1) $ weigthSizes widths}
 
 -- Thing about what haskell does best.
 -- is it algorithms or equations?
@@ -71,21 +37,3 @@ mkNetwork widths = do
 -- Lol sorry for all the text I am just very excited about this project and I want you to
 -- have a better time on this than I did.
 
-sigmoid :: (Floating (f b), Fractional b, Functor f) => f b -> f b
-sigmoid z = fmap (1/) $ fmap (1+) (exp $ negate z)
-
-sigmoid' :: Floating c => Matrix c -> Matrix c
-sigmoid' z = elementwise (*) (sigmoid z) (1-sigmoid(z))
-
-feedForward :: Network -> Matrix Double -> Matrix Double
-feedForward net x
-  | (numLayers net) >= 1 = feedForward newNet a
-  | otherwise            = a
-    where a = sigmoid (elementwise (*) (head $ weights net) x) + (head $ biases net)
-          newNet = Network { numLayers = numLayers net - 1
-                           , sizes = tail (sizes net)
-                           , biases = tail (biases net)
-                           , weights = tail (weights net)}
-
--- cost = 1/2*n*sum(magnitude(output-activation)^2)
--- C(w,b)≡1/(2n)∑x ∥ y(x)−a ∥^2.

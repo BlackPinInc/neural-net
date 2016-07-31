@@ -15,6 +15,32 @@ sigmoid' :: (Shape ix) => Acc (Tensor ix) -> Acc (Tensor ix)
 sigmoid' = A.map (\z -> let s = 1 / (1 + exp (-z)) 
                         in s * (1 - s))
 
+class Layer layer where
+  feedForward :: (Shape inputShape, Shape outputShape) 
+              => layer -- ^ Current Layer in the network 
+              -> Acc (Tensor inputShape) -- ^ Input tensor
+              -> Acc (Tensor outputShape) -- ^ Output tensor
+
+  feedBack    :: (Shape sh1, Shape sh2) 
+              => layer -- ^ Current Layer in the network
+              -> Acc (Tensor sh1) -- ^ The derivative of the previous weight matrix
+              -> (Acc (Tensor sh1), -- ^ The derivative of this weight matrix
+                  Acc (Tensor sh1), -- ^ The error in this weight matrix 
+                  Acc (Tensor sh2)) -- ^ The error in this bias matrix
+
+  removeError :: (Shape sh1, Shape sh2)
+              => layer -- ^ Current input Layer 
+              -> Acc (Tensor sh1) -- ^ Error in the biases of the layer
+              -> Acc (Tensor sh2) -- ^ Error in the weights of the layer
+              -> Float -- ^ Eta for the error
+              -> Float -- ^ Lambda for the error
+              -> Int -- ^ The total number of things `n` lol im not sure
+              -> Int -- ^ The size of the minibatch
+              -> layer -- ^ The output layer (because we are modifying the layer)
+
+  cost        :: layer
+              -> Float 
+  
 
 
 -- Thing about what haskell does best.

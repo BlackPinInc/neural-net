@@ -22,7 +22,8 @@ library
                        matrix,
                        normaldistribution,
                        random,
-                       accelerate
+                       accelerate,
+                       accelerate-arithmetic
   default-language:    Haskell2010
 
 executable neural-net

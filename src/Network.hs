@@ -1,12 +1,22 @@
-{-# LANGUAGE FlexibleContexts, TupleSections #-}
+{-# LANGUAGE FlexibleContexts, TupleSections, TypeFamilies, ExistentialQuantification #-}
 module Network where
 
 import Data.Maybe (isJust, fromJust)
 import Data.Random.Normal
 import System.Random
 import Data.Array.Accelerate as A
+import Data.Array.Accelerate.Arithmetic.LinearAlgebra
+
 
 type Tensor ix = Array ix Float
+
+data Sigmoid = Sigmoid deriving Show
+
+instance Activation Sigmoid where
+  apply _ = A.map (\z -> 1 / (1 + exp (-z)))
+  delta a x = A.map (\z -> 1 * (1 - z)) s
+    where s = apply a x
+
 
 sigmoid :: (Shape ix) => Acc (Tensor ix) -> Acc (Tensor ix)
 sigmoid = A.map (\z -> 1 / (1 + exp (-z)))
@@ -14,24 +24,29 @@ sigmoid = A.map (\z -> 1 / (1 + exp (-z)))
 sigmoid' :: (Shape ix) => Acc (Tensor ix) -> Acc (Tensor ix)
 sigmoid' = A.map (\z -> let s = 1 / (1 + exp (-z)) 
                         in s * (1 - s))
+class Activation act where
+  apply :: (Shape ix) => act -> Acc (Tensor ix) -> Acc (Tensor ix)
+  delta :: (Shape ix) => act -> Acc (Tensor ix) -> Acc (Tensor ix)
 
 class Layer layer where
-  feedForward :: (Shape inputShape, Shape outputShape) 
-              => layer -- ^ Current Layer in the network 
-              -> Acc (Tensor inputShape) -- ^ Input tensor
-              -> Acc (Tensor outputShape) -- ^ Output tensor
+  type InputShape layer :: *
+  type OutputShape layer :: *
+  type WeightShape layer :: *
+  type BiasShape layer :: *
+  feedForward :: layer -- ^ Current Layer in the network 
+              -> Acc (Tensor (InputShape layer)) -- ^ Input tensor
+              -> Acc (Tensor (OutputShape layer)) -- ^ Output tensor
 
-  feedBack    :: (Shape sh1, Shape sh2) 
-              => layer -- ^ Current Layer in the network
-              -> Acc (Tensor sh1) -- ^ The derivative of the previous weight matrix
-              -> (Acc (Tensor sh1), -- ^ The derivative of this weight matrix
-                  Acc (Tensor sh1), -- ^ The error in this weight matrix 
-                  Acc (Tensor sh2)) -- ^ The error in this bias matrix
+  feedBack    :: layer -- ^ Current Layer in the network
+              -> Acc (Tensor (WeightShape layer)) -- ^ The derivative of the previous weight matrix
+              -> ( Acc (Tensor (WeightShape layer)) -- ^ The derivative of this weight matrix
+                 , Acc (Tensor (WeightShape layer)) -- ^ The error in this weight matrix 
+                 , Acc (Tensor (BiasShape layer)) -- ^ The error in this bias matrix
+                 )
 
-  removeError :: (Shape sh1, Shape sh2)
-              => layer -- ^ Current input Layer 
-              -> Acc (Tensor sh1) -- ^ Error in the biases of the layer
-              -> Acc (Tensor sh2) -- ^ Error in the weights of the layer
+  removeError :: layer -- ^ Current input Layer 
+              -> Acc (Tensor (BiasShape layer)) -- ^ Error in the biases of the layer
+              -> Acc (Tensor (WeightShape layer)) -- ^ Error in the weights of the layer
               -> Float -- ^ Eta for the error
               -> Float -- ^ Lambda for the error
               -> Int -- ^ The total number of things `n` lol im not sure
@@ -41,7 +56,24 @@ class Layer layer where
   cost        :: layer
               -> Float 
   
+data FullyConnectedLayer = forall a . Activation a => FullyConnectedLayer 
+                              { fcl_weights :: Acc (Tensor DIM2)
+                              , fcl_biases :: Acc (Tensor DIM1)
+                              , fcl_activation :: a
+                              }
 
+instance Layer FullyConnectedLayer where
+  type InputShape FullyConnectedLayer = DIM1
+  type OutputShape FullyConnectedLayer = DIM1
+  type WeightShape FullyConnectedLayer = DIM2
+  type BiasShape FullyConnectedLayer = DIM1
+  feedForward (FullyConnectedLayer w b a) input = a `apply` z
+    where wx = multiplyMatrixVector w input
+          z = A.zipWith (+) wx b
+{-
+  feedBack (FullyConnectedLayer w b a) prev = 
+    where sp = a `delta` 
+-}
 
 -- Thing about what haskell does best.
 -- is it algorithms or equations?

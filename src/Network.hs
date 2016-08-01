@@ -14,8 +14,8 @@ data Sigmoid = Sigmoid deriving Show
 
 instance Activation Sigmoid where
   apply _ = A.map (\z -> 1 / (1 + exp (-z)))
-  delta a x = A.map (\z -> 1 * (1 - z)) s
-    where s = apply a x
+  delta _ = A.map (\z -> let s = 1 / (1 + exp (-z))
+                         in s * (1 - s)) 
 
 
 sigmoid :: (Shape ix) => Acc (Tensor ix) -> Acc (Tensor ix)
@@ -33,9 +33,16 @@ class Layer layer where
   type OutputShape layer :: *
   type WeightShape layer :: *
   type BiasShape layer :: *
-  feedForward :: layer -- ^ Current Layer in the network 
-              -> Acc (Tensor (InputShape layer)) -- ^ Input tensor
-              -> Acc (Tensor (OutputShape layer)) -- ^ Output tensor
+  data InitParams layer :: *
+
+  initialize  :: InitParams layer
+              -> InputShape layer
+              -> OutputShape layer
+              -> layer
+
+  feedForward :: layer
+              -> Acc (Tensor (InputShape layer))
+              -> Acc (Tensor (OutputShape layer))
 
   feedBack    :: layer -- ^ Current Layer in the network
               -> Acc (Tensor (WeightShape layer)) -- ^ The derivative of the previous weight matrix
@@ -56,10 +63,9 @@ class Layer layer where
   cost        :: layer
               -> Float 
   
-data FullyConnectedLayer = forall a . Activation a => FullyConnectedLayer 
+data FullyConnectedLayer = FullyConnectedLayer 
                               { fcl_weights :: Acc (Tensor DIM2)
                               , fcl_biases :: Acc (Tensor DIM1)
-                              , fcl_activation :: a
                               }
 
 instance Layer FullyConnectedLayer where
@@ -67,9 +73,24 @@ instance Layer FullyConnectedLayer where
   type OutputShape FullyConnectedLayer = DIM1
   type WeightShape FullyConnectedLayer = DIM2
   type BiasShape FullyConnectedLayer = DIM1
-  feedForward (FullyConnectedLayer w b a) input = a `apply` z
+  data InitParams FullyConnectedLayer = FCLDefault
+
+  initialize opt inSize outSize = FullyConnectedLayer w b 
+    where (Z:.x) = inSize
+          (Z:.y) = outSize
+          w = fill (lift (Z:.x:.y)) 1 -- TODO: double-check the arrangement of this Mat
+                               -- TODO: Lol also make random instead of just 1
+                               -- I didnt have internet when I wrote this.
+          b = fill (lift (Z:.y)) 1 -- TODO: We might just want to leave this here
+                            -- I have seen people just using 1 for their biases
+                            -- So maybe this is advantagous 
+                            -- Or maybe we pass that as an argument
+                            -- TODO: Look up a program that finds TODOs in files
+                            -- Or maybe make it?
+  feedForward (FullyConnectedLayer w b) input = z
     where wx = multiplyMatrixVector w input
           z = A.zipWith (+) wx b
+
 {-
   feedBack (FullyConnectedLayer w b a) prev = 
     where sp = a `delta` 

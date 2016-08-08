@@ -1,14 +1,22 @@
-{-# LANGUAGE FlexibleContexts, TupleSections, TypeFamilies, ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts, TupleSections, TypeFamilies, ExistentialQuantification, TypeOperators #-}
 module Network where
 
+import Prelude hiding (zipWith)
+import qualified Prelude as P
 import Data.Maybe (isJust, fromJust)
 import Data.Random.Normal
 import System.Random
-import Data.Array.Accelerate as A
-import Data.Array.Accelerate.Arithmetic.LinearAlgebra
+import Data.Array.Accelerate as A hiding (zipWith, (++))
+import qualified Data.Array.Accelerate as A
+import Data.Array.Accelerate.Arithmetic.LinearAlgebra as T
+import qualified Data.Array.Accelerate.Array.Sugar as S
 
 
-type Tensor ix = Array ix Float
+sizeError i o = error $ "Input size: " ++ show i ++ " does not match output size: " ++ show o
+
+mulMatVec m v | indexHead (shape m) == indexHead (shape v) = multiplyMatrixVector m v
+              | otherwise = error $ "Error with mat mul " ++ show (shape m) ++ " vs " ++ show (shape v)
+type Tensor ix = Acc (Array ix Float)
 
 data Sigmoid = Sigmoid deriving Show
 
@@ -17,84 +25,98 @@ instance Activation Sigmoid where
   delta _ = A.map (\z -> let s = 1 / (1 + exp (-z))
                          in s * (1 - s)) 
 
-
-sigmoid :: (Shape ix) => Acc (Tensor ix) -> Acc (Tensor ix)
-sigmoid = A.map (\z -> 1 / (1 + exp (-z)))
-
-sigmoid' :: (Shape ix) => Acc (Tensor ix) -> Acc (Tensor ix)
-sigmoid' = A.map (\z -> let s = 1 / (1 + exp (-z)) 
-                        in s * (1 - s))
 class Activation act where
-  apply :: (Shape ix) => act -> Acc (Tensor ix) -> Acc (Tensor ix)
-  delta :: (Shape ix) => act -> Acc (Tensor ix) -> Acc (Tensor ix)
+  apply :: (Shape ix) => act -> Tensor ix -> Tensor ix
+  delta :: (Shape ix) => act -> Tensor ix -> Tensor ix
 
-class Layer layer where
-  type InputShape layer :: *
-  type OutputShape layer :: *
-  type WeightShape layer :: *
-  type BiasShape layer :: *
-  data InitParams layer :: *
 
-  initialize  :: InitParams layer
-              -> InputShape layer
-              -> OutputShape layer
-              -> layer
+data Layer w i o = Layer { inputSize :: Exp i
+                         , outputSize :: Exp o
+                         , param :: w
+                         , feedForward :: w -> Tensor i -> Tensor o
+                         , feedBack    :: w -> Tensor i -> Tensor DIM1 -> (w, Tensor DIM1)
+                         , removeError :: w -> w -> w
+                         }
 
-  feedForward :: layer
-              -> Acc (Tensor (InputShape layer))
-              -> Acc (Tensor (OutputShape layer))
+type MatMulLayer = Layer (T.Matrix Z Float) DIM1 DIM1
+                               
+mkMatMulLayer :: Exp DIM1 -> Exp DIM1 
+              -> MatMulLayer
+mkMatMulLayer inSize outSize = layer
+  where (Z:.x) = unlift inSize :: (Z:. Exp Int)
+        (Z:.y) = unlift outSize :: (Z:. Exp Int)
+        weights = fill (lift (Z:.y:.x)) 1 -- TODO: randoms instread of 1
+        ff w input = w `multiplyMatrixVector` input
+        fb w input prevDeriv = (dw, T.vectorFromColumn d)
+          where dw = d `multiplyMatrixMatrix` (T.transpose $ T.columnFromVector input)
+                d = (T.transpose w) `multiplyMatrixMatrix` (T.columnFromVector prevDeriv)
+        re = A.zipWith (-) 
+        layer = Layer { inputSize = inSize
+                      , outputSize = outSize
+                      , param = weights
+                      , feedForward = ff
+                      , feedBack = fb
+                      , removeError = re
+                      }
 
-  feedBack    :: layer -- ^ Current Layer in the network
-              -> Acc (Tensor (WeightShape layer)) -- ^ The derivative of the previous weight matrix
-              -> ( Acc (Tensor (WeightShape layer)) -- ^ The derivative of this weight matrix
-                 , Acc (Tensor (WeightShape layer)) -- ^ The error in this weight matrix 
-                 , Acc (Tensor (BiasShape layer)) -- ^ The error in this bias matrix
-                 )
+type BiasLayer = Layer (T.Vector Z Float) DIM1 DIM1
 
-  removeError :: layer -- ^ Current input Layer 
-              -> Acc (Tensor (BiasShape layer)) -- ^ Error in the biases of the layer
-              -> Acc (Tensor (WeightShape layer)) -- ^ Error in the weights of the layer
-              -> Float -- ^ Eta for the error
-              -> Float -- ^ Lambda for the error
-              -> Int -- ^ The total number of things `n` lol im not sure
-              -> Int -- ^ The size of the minibatch
-              -> layer -- ^ The output layer (because we are modifying the layer)
+mkBiasLayer :: Exp DIM1
+            -> BiasLayer
+mkBiasLayer size = layer
+  where biases = fill (lift size) 1 -- TODO: randoms?
+        ff b input = A.zipWith (+) input b
+        fb _ _ p = (p, p)
+        re = A.zipWith (-) 
+        layer = Layer { inputSize = size
+                      , outputSize = size
+                      , param = biases
+                      , feedForward = ff
+                      , feedBack = fb
+                      , removeError = re
+                      }
 
-  cost        :: layer
-              -> Float 
-  
-data FullyConnectedLayer = FullyConnectedLayer 
-                              { fcl_weights :: Acc (Tensor DIM2)
-                              , fcl_biases :: Acc (Tensor DIM1)
-                              }
+type ActivationLayer = Layer () DIM1 DIM1
+mkActivationLayer :: (Activation a)
+                  => a
+                  -> Exp DIM1
+                  -> ActivationLayer 
+mkActivationLayer a size = Layer { param = ()
+                                 , inputSize = size
+                                 , outputSize = size
+                                 , feedForward = \_ i -> a `apply` i
+                                 , feedBack = (\_ i p -> ( ()
+                                                         , A.zipWith (*) p (a `delta` i)
+                                                         ))
+                                 , removeError = const $ const ()
+                                 }
 
-instance Layer FullyConnectedLayer where
-  type InputShape FullyConnectedLayer = DIM1
-  type OutputShape FullyConnectedLayer = DIM1
-  type WeightShape FullyConnectedLayer = DIM2
-  type BiasShape FullyConnectedLayer = DIM1
-  data InitParams FullyConnectedLayer = FCLDefault
+type Network w1 w2 i o = Layer (w1, w2) i o
 
-  initialize opt inSize outSize = FullyConnectedLayer w b 
-    where (Z:.x) = inSize
-          (Z:.y) = outSize
-          w = fill (lift (Z:.x:.y)) 1 -- TODO: double-check the arrangement of this Mat
-                               -- TODO: Lol also make random instead of just 1
-                               -- I didnt have internet when I wrote this.
-          b = fill (lift (Z:.y)) 1 -- TODO: We might just want to leave this here
-                            -- I have seen people just using 1 for their biases
-                            -- So maybe this is advantagous 
-                            -- Or maybe we pass that as an argument
-                            -- TODO: Look up a program that finds TODOs in files
-                            -- Or maybe make it?
-  feedForward (FullyConnectedLayer w b) input = z
-    where wx = multiplyMatrixVector w input
-          z = A.zipWith (+) wx b
-
-{-
-  feedBack (FullyConnectedLayer w b a) prev = 
-    where sp = a `delta` 
--}
+mkNetwork :: (Shape o1, Shape i2)
+          => Layer w1 i o1
+          -> Layer w2 i2 o
+          -> Network w1 w2 i o
+mkNetwork layer1 layer2 = net
+  where p = (param layer1, param layer2)
+        ff (w1, w2) input = feedForward layer2 w2 reshaped
+          where out = feedForward layer1 w1 input
+                reshaped = reshape (lift $ inputSize layer2) out
+        fb (w1, w2) input prevDeriv = ((nw1, nw2), out1)
+          where input2 = reshape (inputSize layer2) $ feedForward layer1 w1 input
+                (nw2, out2) = feedBack layer2 w2 input2 prevDeriv
+                (nw1, out1) = feedBack layer1 w1 input out2
+        re (w1, w2) (nw1, nw2) = ( removeError layer1 w1 nw1
+                                 , removeError layer2 w2 nw2
+                                 )
+        net = Layer { param = p
+                    , inputSize = (inputSize layer1)
+                    , outputSize = (outputSize layer2)
+                    , feedForward = ff
+                    , feedBack = fb
+                    , removeError = re
+                    }
+                
 
 -- Thing about what haskell does best.
 -- is it algorithms or equations?

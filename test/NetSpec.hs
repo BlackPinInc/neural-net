@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeOperators #-}
 module NetSpec (main, spec) where
 
 import Test.Hspec
@@ -5,6 +6,8 @@ import Test.QuickCheck
 import Network
 import Data.Array.Accelerate as A
 import Data.Array.Accelerate.Interpreter as I
+import Control.Exception (evaluate)
+
 
 -- `main` is here so that this module can be run from GHCi on its own.  It is
 -- not needed for automatic spec discovery.
@@ -33,3 +36,12 @@ spec = do
     it "has a delta of 0.25 at 0" $ do
       testSingleton (delta Sigmoid) zero `shouldBe` 0.25
 
+  describe "FullyConnectedLayer" $ do
+    let layer = mkMatMulLayer (index1 10) (index1 5)
+    let input = use $ fromList (Z:.10) [1..]
+    it "takes a vector of one length and returns another" $ do
+      let outputVec = run $ feedForward layer (param layer) input
+      let (Z:.x) = arrayShape outputVec 
+      x `shouldBe` 5
+    -- it "should throw an error on the wrong input size" $ do
+      -- evaluate (run $ layer `feedForward` input2) `shouldThrow` anyException

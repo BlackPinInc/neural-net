@@ -1,12 +1,11 @@
-module MnistLoader where
+module Data.Array.Accelerate.NeuralNet.Loader where
 
 import qualified Data.ByteString.Lazy as BS
 import Data.Binary.Get
 import Text.Printf
 import Data.Matrix
-import TrainingSet
 import Control.Applicative ((<$>))
-
+{-
 loadData = do
   testLabels <- loadLabels "t10k-labels.idx1-ubyte"
   testImages <- loadImages "t10k-images.idx3-ubyte"
@@ -46,3 +45,4 @@ readImages = do
   numCols <- getWord32be
   images <- mapM (const (mapM (const getWord8) [1..numRows * numCols])) [1..numItems]
   return images
+-}

@@ -3,7 +3,7 @@ module NetSpec (main, spec) where
 
 import Test.Hspec
 import Test.QuickCheck
-import Network
+import Data.Array.Accelerate.NeuralNet
 import Data.Array.Accelerate as A
 import qualified Data.Array.Accelerate.CUDA as I
 import Control.Exception (evaluate)

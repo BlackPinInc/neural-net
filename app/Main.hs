@@ -1,6 +1,6 @@
 module Main where
 
-import Network 
+import Data.Array.Accelerate.NeuralNet 
 import Data.Array.Accelerate as A
 import qualified Data.Array.Accelerate.CUDA as I
 

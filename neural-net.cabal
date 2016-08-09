@@ -15,7 +15,10 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Network, MnistLoader, TrainingSet
+  exposed-modules:     Data.Array.Accelerate.NeuralNet
+  other-modules:       Data.Array.Accelerate.NeuralNet.Layer
+                     , Data.Array.Accelerate.NeuralNet.Loader
+                     , Data.Array.Accelerate.NeuralNet.Activation
   build-depends:       base >= 4.7
                      , bytestring
                      , binary

@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts, TupleSections, TypeFamilies, ExistentialQuantification, TypeOperators #-}
-module Network where
+module Data.Array.Accelerate.NeuralNet.Layer where
 
 import Prelude
 import qualified Prelude as P
@@ -11,22 +11,11 @@ import qualified Data.Array.Accelerate.Array.Sugar as S
 import qualified Data.Array.Accelerate.System.Random.MWC as R
 import qualified Data.Array.Accelerate.Arithmetic.LinearAlgebra as T
 
+import Data.Array.Accelerate.NeuralNet.Activation
+
+type Tensor ix = Acc (Array ix Float) 
 
 sizeError i o = error $ "Input size: " ++ show i ++ " does not match output size: " ++ show o
-
-type Tensor ix = Acc (Array ix Float)
-
-data Sigmoid = Sigmoid deriving Show
-
-instance Activation Sigmoid where
-  apply _ = A.map (\z -> 1 / (1 + exp (-z)))
-  delta _ = A.map (\z -> let s = 1 / (1 + exp (-z))
-                         in s * (1 - s)) 
-
-class Activation act where
-  apply :: (Shape ix) => act -> Tensor ix -> Tensor ix
-  delta :: (Shape ix) => act -> Tensor ix -> Tensor ix
-
 
 data Layer w i o = Layer { inputSize :: Exp i
                          , outputSize :: Exp o

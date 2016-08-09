@@ -5,7 +5,7 @@ import Test.Hspec
 import Test.QuickCheck
 import Data.Array.Accelerate.NeuralNet
 import Data.Array.Accelerate as A
-import qualified Data.Array.Accelerate.CUDA as I
+import qualified Data.Array.Accelerate.Interpreter as I
 import Control.Exception (evaluate)
 
 

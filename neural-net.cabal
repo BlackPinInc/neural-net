@@ -27,7 +27,6 @@ library
                      , random
                      , accelerate
                      , accelerate-arithmetic
-                     , accelerate-cuda
                      , accelerate-random
                      , mwc-random
   default-language:    Haskell2010
@@ -39,7 +38,6 @@ executable neural-net
   build-depends:       base
                      , neural-net
                      , accelerate
-                     , accelerate-cuda
   default-language:    Haskell2010
 
 test-suite neural-net-test
@@ -51,7 +49,6 @@ test-suite neural-net-test
                      , hspec
                      , QuickCheck
                      , accelerate
-                     , accelerate-cuda
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 

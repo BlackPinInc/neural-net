@@ -134,4 +134,40 @@ mkNetwork layer1 layer2 = net
                     , removeError = re
                     }
                 
+type FullyConnectedLayer = Layer (T.Matrix Z Float, T.Vector Z Float) DIM1 DIM1
+
+mkFullyConnectedLayer :: (Activation a) => a -> Int -> Int -> IO FullyConnectedLayer 
+mkFullyConnectedLayer a i o = do
+  matMulLayer <- mkNormalMatMulLayer 0 (sqrt (P.fromIntegral i)) i o
+  biasLayer <- mkNormalBiasLayer 0 1 o
+  let actLayer = mkActivationLayer a o
+  let p = (param matMulLayer, param biasLayer)
+  let ff (w, b) input = let wx = feedForward matMulLayer w input
+                            z = feedForward biasLayer b wx
+                            a = feedForward actLayer () z
+                        in a
+  let fb (w, b) input prevDeriv = let wx = feedForward matMulLayer w input
+                                      z = feedForward biasLayer b wx
+                                      (_, d1) = feedBack actLayer () z prevDeriv
+                                      (nb, d2) = feedBack biasLayer b wx d1
+                                      (nw, newDeriv) = feedBack matMulLayer w input d2
+                                  in ((nw, nb), newDeriv)
+  let re (w, b) (nw, nb) = ( removeError matMulLayer w nw
+                           , removeError biasLayer b nb
+                           )
+  let net = Layer { param = p
+                  , inputSize = index1 $ lift i
+                  , outputSize = index1 $ lift o
+                  , feedForward = ff
+                  , feedBack = fb
+                  , removeError = re
+                  }
+  return net
+
+type MultilayerPerceptron = Layer [(T.Matrix Z Float, T.Vector Z Float)] DIM1 DIM1
+
+
+ 
+ 
+
 

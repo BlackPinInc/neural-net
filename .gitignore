@@ -1,7 +1,5 @@
 .stack-work/
-.stack-work/
 .cabal-sandbox/
-accelerate*
 cabal.sandbox.config
 dist/
 *.swp

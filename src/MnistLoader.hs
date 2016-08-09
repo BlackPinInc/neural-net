@@ -5,6 +5,7 @@ import Data.Binary.Get
 import Text.Printf
 import Data.Matrix
 import TrainingSet
+import Control.Applicative ((<$>))
 
 loadData = do
   testLabels <- loadLabels "t10k-labels.idx1-ubyte"

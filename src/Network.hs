@@ -1,21 +1,19 @@
 {-# LANGUAGE FlexibleContexts, TupleSections, TypeFamilies, ExistentialQuantification, TypeOperators #-}
 module Network where
 
-import Prelude hiding (zipWith)
+import Prelude
 import qualified Prelude as P
-import Data.Maybe (isJust, fromJust)
-import Data.Random.Normal
-import System.Random
-import Data.Array.Accelerate as A hiding (zipWith, (++))
+import Control.Applicative ((<$>))
+import Data.Array.Accelerate as A hiding ((++))
+import qualified System.Random.MWC.Distributions as R
 import qualified Data.Array.Accelerate as A
-import Data.Array.Accelerate.Arithmetic.LinearAlgebra as T
 import qualified Data.Array.Accelerate.Array.Sugar as S
+import qualified Data.Array.Accelerate.System.Random.MWC as R
+import qualified Data.Array.Accelerate.Arithmetic.LinearAlgebra as T
 
 
 sizeError i o = error $ "Input size: " ++ show i ++ " does not match output size: " ++ show o
 
-mulMatVec m v | indexHead (shape m) == indexHead (shape v) = multiplyMatrixVector m v
-              | otherwise = error $ "Error with mat mul " ++ show (shape m) ++ " vs " ++ show (shape v)
 type Tensor ix = Acc (Array ix Float)
 
 data Sigmoid = Sigmoid deriving Show
@@ -38,58 +36,88 @@ data Layer w i o = Layer { inputSize :: Exp i
                          , removeError :: w -> w -> w
                          }
 
-type MatMulLayer = Layer (T.Matrix Z Float) DIM1 DIM1
+
+-- MatMulLayer --
                                
-mkMatMulLayer :: Exp DIM1 -> Exp DIM1 
-              -> MatMulLayer
-mkMatMulLayer inSize outSize = layer
-  where (Z:.x) = unlift inSize :: (Z:. Exp Int)
-        (Z:.y) = unlift outSize :: (Z:. Exp Int)
-        weights = fill (lift (Z:.y:.x)) 1 -- TODO: randoms instread of 1
-        ff w input = w `multiplyMatrixVector` input
+type MatMulLayer = Layer (T.Matrix Z Float) DIM1 DIM1
+
+mkMatMulLayer :: T.Matrix Z Float -> Int -> Int -> MatMulLayer
+mkMatMulLayer init inSize outSize = layer
+  where weights = init -- TODO: randoms instread of 1
+        ff w input = w `T.multiplyMatrixVector` input
         fb w input prevDeriv = (dw, T.vectorFromColumn d)
-          where dw = d `multiplyMatrixMatrix` (T.transpose $ T.columnFromVector input)
-                d = (T.transpose w) `multiplyMatrixMatrix` (T.columnFromVector prevDeriv)
+          where dw = d `T.multiplyMatrixMatrix` (T.transpose $ T.columnFromVector input)
+                d = (T.transpose w) `T.multiplyMatrixMatrix` (T.columnFromVector prevDeriv)
         re = A.zipWith (-) 
-        layer = Layer { inputSize = inSize
-                      , outputSize = outSize
+        layer = Layer { inputSize = index1 $ lift inSize
+                      , outputSize = index1 $ lift outSize
                       , param = weights
                       , feedForward = ff
                       , feedBack = fb
                       , removeError = re
                       }
 
+mkUnitMatMulLayer :: Float -> Int -> Int -> MatMulLayer
+mkUnitMatMulLayer i inSize outSize = mkMatMulLayer init inSize outSize
+  where init = fill (index2 (lift outSize) (lift inSize)) $ lift i
+
+mkNormalMatMulLayer :: Float -> Float -> Int -> Int -> IO MatMulLayer
+mkNormalMatMulLayer m s inSize outSize = do
+  let generator _ g = realToFrac <$> R.normal (realToFrac m) (realToFrac s) g
+  gen <- R.create
+  init <- R.randomArrayWith gen generator (Z:.outSize:.inSize)
+  return $ mkMatMulLayer (use init) inSize outSize
+
+
+-- BiasLayer -- 
+
 type BiasLayer = Layer (T.Vector Z Float) DIM1 DIM1
 
-mkBiasLayer :: Exp DIM1
-            -> BiasLayer
-mkBiasLayer size = layer
-  where biases = fill (lift size) 1 -- TODO: randoms?
+mkBiasLayer :: T.Vector Z Float -> Int -> BiasLayer
+mkBiasLayer init size = layer
+  where biases = init -- TODO: randoms?
         ff b input = A.zipWith (+) input b
         fb _ _ p = (p, p)
         re = A.zipWith (-) 
-        layer = Layer { inputSize = size
-                      , outputSize = size
+        layer = Layer { inputSize = index1 $ lift size
+                      , outputSize = index1 $ lift size
                       , param = biases
                       , feedForward = ff
                       , feedBack = fb
                       , removeError = re
                       }
 
+mkUnitBiasLayer :: Float -> Int -> BiasLayer
+mkUnitBiasLayer i size = mkBiasLayer (fill (index1 $ lift size) $ lift i) size 
+
+mkNormalBiasLayer :: Float -> Float -> Int -> IO BiasLayer
+mkNormalBiasLayer m s size = do
+  let generator _ g = realToFrac <$> R.normal (realToFrac m) (realToFrac s) g
+  gen <- R.create
+  init <- R.randomArrayWith gen generator (Z:.size)
+  return $ mkBiasLayer (use init) size
+
+
+-- ActivationLayer -- 
+
 type ActivationLayer = Layer () DIM1 DIM1
-mkActivationLayer :: (Activation a)
-                  => a
-                  -> Exp DIM1
-                  -> ActivationLayer 
+
+mkActivationLayer :: (Activation a) => a -> Int -> ActivationLayer 
 mkActivationLayer a size = Layer { param = ()
-                                 , inputSize = size
-                                 , outputSize = size
+                                 , inputSize = index1 $ lift size
+                                 , outputSize = index1 $ lift size
                                  , feedForward = \_ i -> a `apply` i
                                  , feedBack = (\_ i p -> ( ()
                                                          , A.zipWith (*) p (a `delta` i)
                                                          ))
                                  , removeError = const $ const ()
                                  }
+
+mkSigmoidLayer :: Int -> ActivationLayer
+mkSigmoidLayer = mkActivationLayer Sigmoid
+
+
+-- Network -- 
 
 type Network w1 w2 i o = Layer (w1, w2) i o
 
@@ -117,24 +145,4 @@ mkNetwork layer1 layer2 = net
                     , removeError = re
                     }
                 
-
--- Thing about what haskell does best.
--- is it algorithms or equations?
--- Avoid concrete types, use Num, Floating, or Functor instead of Matrix.
--- If you need to make your own class and have Matrix implement that class maybe you should.
--- I looked at the equations again last night and they will probably be easier to implement
--- in Haskell than the algorithms.
---
--- The feed forward algorithm has an equation that we can implement directly in Haskell.
--- No need to follow their code.  Or my own crappy code.  Blind leading the blind.
---
--- Take a look at the backprop equations(BP1-BP4) I can help you translate these directly
--- into haskell functions.  All of these equations have a direct haskell equivalent.
---
--- And you should look at this link for how to set up the unit testing.
--- https://github.com/kazu-yamamoto/unit-test-example
--- They use HSpec instead of HUnit but I would recomend HSpec because its more haskelly.
---
--- Lol sorry for all the text I am just very excited about this project and I want you to
--- have a better time on this than I did.
 

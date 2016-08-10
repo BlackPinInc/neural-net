@@ -23,18 +23,18 @@ spec = do
     let testSingleton f x = indexArray (I.run (f (unit x))) Z
 
     it "is 0 at -inf" $ do
-      testSingleton (apply Sigmoid) neginf `shouldBe` 0
+      testSingleton (act_apply Sigmoid) neginf `shouldBe` 0
     it "is 1 at inf" $ do
-      testSingleton (apply Sigmoid) posinf `shouldBe` 1
+      testSingleton (act_apply Sigmoid) posinf `shouldBe` 1
     it "is 0.5 at 0" $ do
-      testSingleton (apply Sigmoid) zero `shouldBe` 0.5
+      testSingleton (act_apply Sigmoid) zero `shouldBe` 0.5
 
     it "has a delta of 0 at -inf" $ do
-      testSingleton (delta Sigmoid) neginf `shouldBe` 0
+      testSingleton (act_delta Sigmoid) neginf `shouldBe` 0
     it "has a delta of 0 at inf" $ do
-      testSingleton (delta Sigmoid) posinf `shouldBe` 0
+      testSingleton (act_delta Sigmoid) posinf `shouldBe` 0
     it "has a delta of 0.25 at 0" $ do
-      testSingleton (delta Sigmoid) zero `shouldBe` 0.25
+      testSingleton (act_delta Sigmoid) zero `shouldBe` 0.25
 
   describe "Matrix Multiplication Layer (MatMulLayer, mkMatMulLayer)" $ do
     let layer = mkUnitMatMulLayer 1 10 5

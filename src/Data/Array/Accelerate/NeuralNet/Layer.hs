@@ -95,9 +95,9 @@ mkActivationLayer :: (Activation a) => a -> Int -> ActivationLayer
 mkActivationLayer a size = Layer { param = ()
                                  , inputSize = index1 $ lift size
                                  , outputSize = index1 $ lift size
-                                 , feedForward = \_ i -> a `apply` i
+                                 , feedForward = \_ i -> a `act_apply` i
                                  , feedBack = (\_ i p -> ( ()
-                                                         , A.zipWith (*) p (a `delta` i)
+                                                         , A.zipWith (*) p (a `act_delta` i)
                                                          ))
                                  , removeError = const $ const ()
                                  }
@@ -164,8 +164,41 @@ mkFullyConnectedLayer a i o = do
                   }
   return net
 
-type MultilayerPerceptron = Layer [(T.Matrix Z Float, T.Vector Z Float)] DIM1 DIM1
+type MultiLayerNetwork a = Layer [a] DIM1 DIM1
 
+nullNetwork :: MultiLayerNetwork a
+nullNetwork = Layer { param = []
+                    , inputSize = index1 0
+                    , outputSize = index1 0
+                    , feedForward = const id
+                    , feedBack = \_ _ p -> ([],p)
+                    , removeError = const $ const $ []
+                    }
+
+consNetwork :: Layer a DIM1 DIM1 -> MultiLayerNetwork a -> MultiLayerNetwork a
+consNetwork layer net = net
+  where ff (w:ws) input = feedForward net ws $ feedForward layer w input
+        -- This looks crazy like theres no base case for the recursion but there isnt
+        -- because this isnt recursive.
+        -- it calls `feedForward` in `net` not in the current network!
+        -- This code is blowing my fucking mind.
+        fb (w:ws) input prevDeriv = (nw:nws, d2)
+          where act = feedForward layer w input 
+                (nws, d1) = feedBack net ws act prevDeriv
+                (nw, d2) = feedBack layer w input d1
+        -- This code runs `feedForward` all the way down the chain then comes back up with 
+        -- the backpropagation. This is because the recursive step is between the individual steps.
+        re (w:ws) (nw:nws) = (removeError layer w nw : removeError net ws nws)
+
+        net = Layer { param = (param layer) : (param net)
+                    , inputSize = (inputSize layer) 
+                    , outputSize = if (P.null $ param net) then (outputSize layer) else (outputSize net)
+                    , feedForward = ff
+                    , feedBack = fb
+                    , removeError = re
+                    }
+                
+                
 
  
  

@@ -19,6 +19,7 @@ library
   other-modules:       Data.Array.Accelerate.NeuralNet.Layer
                      , Data.Array.Accelerate.NeuralNet.Loader
                      , Data.Array.Accelerate.NeuralNet.Activation
+                     , Data.Array.Accelerate.NeuralNet.CostFunction
   build-depends:       base >= 4.7
                      , bytestring
                      , binary
@@ -30,6 +31,7 @@ library
                      , accelerate-cuda
                      , accelerate-random
                      , mwc-random
+                     , filepath
   default-language:    Haskell2010
 
 executable neural-net

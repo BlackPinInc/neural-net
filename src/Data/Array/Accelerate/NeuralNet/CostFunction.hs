@@ -25,6 +25,12 @@ class CostFunction a where
   cost_apply' c v z = cost_apply c v n
     where (Z:.n) = unlift $ argmax z
   cost_delta :: a -> T.Vector Z Float -> T.Vector Z Float -> T.Vector Z Float
+  cost_delta c a y = cost_delta' c a n
+    where (Z:.n) = unlift $ argmax y
+  cost_delta' :: a -> T.Vector Z Float -> Exp Int -> T.Vector Z Float
+  cost_delta' c a n = cost_delta c a y
+    where y = fill (index1 (n-1)) 0 <> fill (index1 1) 1 <> fill (index1 (size y - n)) 0
+  
 
 data CrossEntropy = CrossEntropy deriving Show
 

@@ -14,3 +14,8 @@ instance Activation Sigmoid where
   act_delta _ = A.map (\z -> let s = 1 / (1 + exp (-z))
                          in s * (1 - s)) 
 
+data ReLU = ReLU deriving Show
+
+instance Activation ReLU where
+  act_apply _ = A.map (\z -> if z < 0 then 0 else z)
+  act_delta _ = A.map (\z -> if z < 0 then 0 else 1)

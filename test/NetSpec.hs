@@ -54,7 +54,7 @@ spec = do
       let finalBool = I.run boolValue
       indexArray finalBool Z `shouldBe` True
   describe "Activation Layer (ActivationLayer mkActivationLayer)" $ do
-    let layer = mkSigmoidLayer 5
+    let layer = mkSigmoidLayer (index1 $ constant 5) :: ActivationLayer DIM1
     let input = use $ fromList (Z:.5) $ repeat (-1/0)
     it "takes a vector of -inf and returns the elementwise application of sigmoid aka ret=0" $ do
       let accVec = feedForward layer (param layer) input

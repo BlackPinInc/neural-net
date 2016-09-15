@@ -20,6 +20,11 @@ library
                      , Data.Array.Accelerate.NeuralNet.Loader
                      , Data.Array.Accelerate.NeuralNet.Activation
                      , Data.Array.Accelerate.NeuralNet.CostFunction
+                     , Data.Array.Accelerate.NeuralNet.Util
+                     , Data.Array.Accelerate.NeuralNet.Layer.Types
+                     , Data.Array.Accelerate.NeuralNet.Layer.DynamicLayers
+                     , Data.Array.Accelerate.NeuralNet.Layer.StaticLayers
+                     , Data.Array.Accelerate.NeuralNet.Layer.LayerCombiners
   build-depends:       base >= 4.7
                      , bytestring
                      , binary
@@ -32,6 +37,9 @@ library
                      , accelerate-random
                      , mwc-random
                      , filepath
+                     , transformers
+                     , mtl
+                     , cuda
   default-language:    Haskell2010
 
 executable neural-net
@@ -44,6 +52,17 @@ executable neural-net
                      , accelerate-cuda
   default-language:    Haskell2010
 
+executable benchmark
+  hs-source-dirs:      bench
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  main-is:             Main.hs
+  build-depends:       base
+                     , neural-net
+                     , accelerate
+                     , accelerate-cuda
+                     , criterion
+  default-language:    Haskell2010
+
 test-suite neural-net-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
@@ -54,6 +73,7 @@ test-suite neural-net-test
                      , QuickCheck
                      , accelerate
                      , accelerate-cuda
+                     , mtl
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 

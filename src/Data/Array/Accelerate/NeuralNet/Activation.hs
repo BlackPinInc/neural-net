@@ -9,6 +9,7 @@ class Activation act where
 
 data Sigmoid = Sigmoid deriving Show
 
+-- | O(n)
 instance Activation Sigmoid where
   act_apply _ = A.map (\z -> 1 / (1 + exp (-z)))
   act_delta _ = A.map (\z -> let s = 1 / (1 + exp (-z))
@@ -17,5 +18,5 @@ instance Activation Sigmoid where
 data ReLU = ReLU deriving Show
 
 instance Activation ReLU where
-  act_apply _ = A.map (\z -> if z < 0 then 0 else z)
-  act_delta _ = A.map (\z -> if z < 0 then 0 else 1)
+  act_apply _ = A.map (\z -> (z <* 0) ? (1, z))
+  act_delta _ = A.map (\z -> (z <* 0) ? (0, 1))

@@ -1,0 +1,2 @@
+cabal build benchmark && ./dist/build/benchmark/benchmark --output=output.html "$1"
+

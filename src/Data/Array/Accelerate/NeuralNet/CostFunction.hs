@@ -18,29 +18,31 @@ argmax arr = A.snd exp
         
 
 class CostFunction a where
+
   cost_apply :: a -> T.Vector Z Float -> Exp Int -> Exp Float 
-  cost_apply c v n = cost_apply' c v z
-    where z = fill (index1 (n-1)) 0 <> fill (index1 1) 1 <> fill (index1 (size v - n)) 0
-  cost_apply' :: a -> T.Vector Z Float -> T.Vector Z Float -> Exp Float
-  cost_apply' c v z = cost_apply c v n
-    where (Z:.n) = unlift $ argmax z
-  cost_delta :: a -> T.Vector Z Float -> T.Vector Z Float -> T.Vector Z Float
-  cost_delta c a y = cost_delta' c a n
-    where (Z:.n) = unlift $ argmax y
-  cost_delta' :: a -> T.Vector Z Float -> Exp Int -> T.Vector Z Float
-  cost_delta' c a n = cost_delta c a y
+  cost_apply c a n = cost_apply' c a y
     where y = fill (index1 (n-1)) 0 <> fill (index1 1) 1 <> fill (index1 (size y - n)) 0
+  cost_apply' :: a -> T.Vector Z Float -> T.Vector Z Float -> Exp Float
+  cost_apply' c a y = cost_apply c a n
+    where (Z:.n) = unlift $ argmax y
+
+  cost_delta :: a -> T.Vector Z Float -> Exp Int -> T.Vector Z Float
+  cost_delta c a n = cost_delta' c a y
+    where y = fill (index1 (n-1)) 0 <> fill (index1 1) 1 <> fill (index1 (size y - n)) 0
+  cost_delta' :: a -> T.Vector Z Float -> T.Vector Z Float -> T.Vector Z Float
+  cost_delta' c a y = cost_delta c a n
+    where (Z:.n) = unlift $ argmax y
   
 
 data CrossEntropy = CrossEntropy deriving Show
 
 instance CostFunction CrossEntropy where
   cost_apply' c a y = the $ A.sum $ A.zipWith (\a y -> -y*log a - (1-y)*log(1-a)) a y
-  cost_delta c = A.zipWith (\a y -> -y / a + (1-y)/(1-a)) 
+  cost_delta' c = A.zipWith (\a y -> -y / a + (1-y)/(1-a)) 
 
 data QuadraticCost = QuadraticCost deriving Show
 
 instance CostFunction QuadraticCost where
   cost_apply' c a y = the $ A.sum $ A.zipWith (\a y -> (a - y) * (a - y)) a y
-  cost_delta c = A.zipWith (\a y -> a - y)  
+  cost_delta' c = A.zipWith (\a y -> a - y)  
 

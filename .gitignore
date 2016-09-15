@@ -4,3 +4,5 @@ cabal.sandbox.config
 dist/
 *.swp
 .DS_Store
+.idea
+*.html

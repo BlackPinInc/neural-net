@@ -4,7 +4,7 @@ import Control.Monad
 import Control.Applicative
 import Data.Array.Accelerate.NeuralNet
 import Data.Array.Accelerate as A
-import Data.Array.Accelerate.CUDA as I
+import Data.Array.Accelerate.Interpreter as I
 
 benchNum f n = bench (show n) $ whnf f n
 benchNumIO f n = bench (show n) $ whnfIO $ f n

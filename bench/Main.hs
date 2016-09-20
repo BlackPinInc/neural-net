@@ -73,6 +73,12 @@ main = defaultMain [
           , bgroup "act_delta" $ Prelude.map (benchNum $ actDelt ReLU) [1000 :: Int]
         ]
     ]
+  , bgroup "loadMnist" [
+        bench "one arr" $ nfIO (toList . Prelude.fst . head . Prelude.fst<$>loadMnistArrays "/usr/local/share/mnist")
+      , bench "100 test cases" $ nfIO (Prelude.map (toList.Prelude.fst) . Prelude.take 100 . Prelude.fst<$>loadMnistArrays "/usr/local/share/mnist")
+      , bench "1000 test cases" $ nfIO (Prelude.map (toList.Prelude.fst) . Prelude.take 1000 . Prelude.fst<$>loadMnistArrays "/usr/local/share/mnist")
+      , bench "all test cases" $ nfIO (Prelude.map (toList.Prelude.fst) . Prelude.fst<$>loadMnistArrays "/usr/local/share/mnist")
+    ]
   , bgroup "mkNormalMatMulLayer" $ Prelude.map (benchNumIO (join $ mkNormalMatMulLayer 0 1)) [13::Int]
   , bgroup "foldRun" $ 
       (benchNum2 $ foldTest foldRun) <$> [10,20] <*> [100]
